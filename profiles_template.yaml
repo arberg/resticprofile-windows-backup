@@ -1,0 +1,200 @@
+# Template file for backup configuration.
+# The ./install.ps1 installs tasks which run the ./task-*.ps1 scripts.
+# The ./task-*.ps1 scripts run the groups: daily, frequent, and runs maintenance (prune, check) on repos group
+# The schedule in this file is currently unused.
+# The v2 format of this file is at the time of writing not stable, so subject to change. This was developed for resticprofile 0.23.0
+
+version: "2"
+
+global:
+  # Retry a restic command that failed on acquiring a lock every minute 
+  # (at least), for up to the time specified in "--lock-wait duration". 
+  restic-lock-retry-after: 1m
+  lock-wait duration: 1h
+  # Ask restic to unlock a stale lock when its age is more than 2 hours
+  # and the option "force-inactive-lock" is enabled in the profile.
+  restic-stale-lock-age: 12h
+  force-inactive-lock: true
+
+profiles:
+
+  root:
+    password-file: "restic-encryption-password.txt"
+    prune:
+      max-unused: "1%"
+    backup:
+      use-fs-snapshot: true # Note that VSS Snapshot does not work on all remote drives, such as USB-sticks
+      group-by: "host,tags" # host,tags.paths, or --parent: snapshot-id: Parent snapshot selection, see https://restic.readthedocs.io/en/stable/040_backup.html#file-change-detection
+      exclude-if-present: .nobackup-restic # Dirs with this file will not be backed up, I have added it to all 5 onedrives in /backup
+      # verbose: 1 # --verbose=2 (-vv)
+
+      # schedule: daily #'*:00,30'
+      # schedule-permission: system
+      # schedule-priority: background
+      # schedule-lock-mode: default
+      # schedule-lock-wait: 215m30s
+      # schedule-log: logs/profile-backup.log
+      # schedule-log: '{{ tempFile "backup.log" }}'
+      # run-finally: 'cp {{ tempFile "backup.log" }} logs/backup{{ .Now.Format "2006-01-02T15-04-05" }}.log'
+    retention:
+      before-backup: false
+      after-backup: true
+      keep-within: 2d # Means keep all within this time-frame
+      keep-daily: 7 # For 7 days keep only one snapshot daily (unless some other keep-rule marks it for keeping)
+      keep-weekly: 4 # For 4 weeks keep one pr week
+      keep-monthly: 12
+      keep-yearly: 2
+      keep-tag:
+        - forever
+      prune: false
+      tag: true
+      path: false # To avoid warning due to * in source, and make restic forget ignore paths
+      host: true
+
+  windows:
+    inherit: root
+    repository: "\\\\towerAdministrator\\windowsbackup\\Restic\\windows"
+    backup:
+      iexclude-file: # Note that !/foo/bar inside exclude, cannot undo exclude from exclude-file, as exclude-file gets applied last by restic, regardless of order of arguments
+        - windows.exclude
+
+  windows-drives:
+    inherit: windows
+    repository: "\\\\towerAdministrator\\windowsbackup\\Restic\\windows"
+    backup:
+      iexclude-file:
+        - windows.exclude
+        - local.exclude
+
+# ----------
+
+  drivec:
+    inherit: windows-drives
+    tag:
+      - "C:\\"
+    backup:
+      schedule-log: logs/profile-drivec.log
+      source:
+        - "C:\\"
+
+
+  drived:
+    inherit: windows-drives
+    tag:
+      - "D:\\"
+    backup:
+      schedule-log: logs/profile-drived.log
+      source:
+        - "D:\\"
+
+  games:
+    inherit: windows
+    tag:
+      - "GameData"
+    backup:
+      # schedule: '*:00,30'
+      # schedule-log: logs/profile-games.log
+      source:
+        - "D:/Users/*/Documents/Electronic Arts/The Sims 4" # Important frequent: Saves and Tray
+        - "D:/Users/*/Documents/StarCraft"
+        - "D:/Users/*/Documents/StarCraft II"
+    retention:
+      keep-within: 1d # Means keep all within this time-frame
+      keep-daily: 7 # For 7 days keep only one snapshot daily (unless some other keep-rule marks it for keeping)
+      keep-weekly: 4 # For 4 weeks keep one pr week
+      keep-monthly: 12 # After this 1Year all is deleted (no more matching keep rules)
+      keep-yearly: 0 # overwrite from parent
+
+  development:
+    inherit: windows
+    tag:
+      - "Development"
+    repository: "\\\\towerAdministrator\\windowsbackup\\Restic\\development"
+    backup:
+      schedule-log: logs/profile-development.log
+      group-by: "host,tags" # host,tags.paths, or --parent: snapshot-id: Parent snapshot selection, see https://restic.readthedocs.io/en/stable/040_backup.html#file-change-detection
+      source:
+        - "D:/Development"
+      iexclude:
+        - "D:/Development/**/build"
+        - "D:/Development/BnrTools/android-sdk/.android/avd/*.avd/*.qcow2"
+        - "D:/Development/BnrTools/android-sdk/.android/avd/*.avd/**/*.img"
+        - ".sync/Archive*"
+        - "_gsdata_"
+    retention:
+      before-backup: false
+      after-backup: true
+      keep-within: 2d # Means keep all within this time-frame
+      keep-daily: 7 # For 7 days keep only one snapshot daily (unless some other keep-rule marks it for keeping)
+      keep-weekly: 4 # For 4 weeks keep one pr week
+      keep-tag:
+        - forever
+      prune: false
+      tag: true
+      path: false # To avoid warning due to * in source, and make restic forget ignore paths
+      host: true
+  
+groups:
+  all:
+    profiles:
+      - drivec
+      - drived
+      - development
+      - games
+  daily:
+    profiles:
+      - drivec
+      - drived
+      - development
+  frequent:
+    profiles:
+      - games
+  repos: # one from each repository for check, gets pruned daily and checked weekly
+    profiles: 
+      - windows
+      - development
+      
+# schedules:
+#     full: # give a name to your schedule
+#         group: maindrives
+#         schedule:
+#             - "Mon..Fri *:00,15,30,45" # every 15 minutes on weekdays
+#         permission: system
+#         run: backup # backup is the default if not specified
+
+
+# Looks cool but doesn't work yet it seems - https://creativeprojects.github.io/resticprofile/configuration/v2/index.html
+# schedules:
+#     alldaily: # give a name to your schedule
+#         group: maindrives
+#         schedule: 
+#           - daily
+#             # - "Mon..Fri *:00,15,30,45" # every 15 minutes on weekdays
+#           # - daily
+#         permission: system # user
+#         priority: background
+#         lock-mode: default
+#         lock-wait: 215m30s
+#         log: logs/profile-main.log
+#         run: backup # backup is the default if not specified
+
+#     frequent: # give a name to your schedule
+#         group: frequent
+#         schedule: '*:00,30'  # every 30 minutes
+#             # - "Mon..Fri *:00,15,30,45" # every 15 minutes on weekdays
+#           # - daily
+#         permission: system # user
+#         priority: background
+#         lock-mode: default
+#         lock-wait: 215m30s
+#         log: logs/profile-frequent.log
+#         run: backup # backup is the default if not specified
+
+#     # other:
+#     #     profiles:
+#     #         - root
+#     #         - mysql
+#     #     schedule:
+#     #         - "Sat,Sun 0,12:00" # twice a day on week-ends
+#     #     permission: user
+#     #     run: prune
