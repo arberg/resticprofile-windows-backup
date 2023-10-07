@@ -1,0 +1,17 @@
+logs
+hosts
+
+restic.exe
+resticprofile.exe
+
+local.exclude
+secrets*.ps1
+restic-encryption-password*
+backup-profile.ps1
+profiles.yaml
+
+old
+test
+
+.sync
+_gsdata_
