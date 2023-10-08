@@ -13,3 +13,6 @@ $UseMultiHostsDir=$True
 
 $LogPath = Join-Path $InstallPath "logs"
 $LogRetentionDays = 30 # TODO
+
+# Only needed for multi-pc backup towards same repository. Set this to the hostname of the PC which should run the weekly check and prune tasks. Execute 'hostname' command to get your hostname.
+$MaintenanceHost = hostname
