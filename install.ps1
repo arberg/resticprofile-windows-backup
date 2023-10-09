@@ -70,6 +70,10 @@ if ($?){
     }
 }
 
+if (-Not (Test-Path $dirPid)) { 
+    New-Item -Type Directory $dirPid 
+}
+
 function Test-IsLink([string]$path) {
     # Alternative (I'm not sure its same semantics, though it is same bevaiour with link created in New-Link below) ((Get-item $path).LinkType -eq "SymbolicLink")
     $file = Get-Item $path -Force -ea SilentlyContinue
@@ -172,6 +176,3 @@ function createHourlyTrigger([System.TimeSpan]$TimeSpan) {
 }
 
 . $PSScriptRoot/config-install-task.ps1
-
-Write-Host -ForegroundColor Magenta "Have you configured Windows Virus Protection to avoid 'Process: restic.exe' ? You need to do so manually, once for each PC."
-

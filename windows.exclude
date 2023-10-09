@@ -39,7 +39,7 @@ Google Drive\.tmp.drivedownload
 # browsers
 Google\Chrome
 
-# AppData
+# AppData (including c:\Windows\System32\config\systemprofile\AppData\Local)
 AppData\Local\Microsoft
 AppData\Local\Duplicati
 AppData\Local\D3DSCache
@@ -56,6 +56,9 @@ AppData\Roaming\Code
 AppData\Roaming\Slack
 AppData\Roaming\Spotify
 AppData\Roaming\Zoom
+
+# Our custom restic-cache dir
+C:\ProgramData\restic-cache
 
 # misc. temporary files
 Temporary Internet Files

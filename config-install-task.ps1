@@ -16,8 +16,8 @@ if ((hostname) -eq $MaintenanceHost) {
     scheduleTask `
         -ReplaceCurrentTask `
         -BackupTaskName "Backup\Restic Backup - Maintenance" `
-        -Command ".\task-backup-maintenance.ps1" `
-        -BackupTaskTrigger (New-ScheduledTaskTrigger -Weekly -At 11:40 -DaysOfWeek 0)
+        -Command ".\task-maintenance.ps1" `
+        -BackupTaskTrigger (New-ScheduledTaskTrigger -Weekly -At 11:40 -DaysOfWeek 0)    
 } else {
     Write-Host "This host ($(hostname)) is no the registered maintance host ($MaintenanceHost), so skipping maintenance-task."
 }

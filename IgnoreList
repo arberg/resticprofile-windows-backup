@@ -1,7 +1,4 @@
-﻿# Resilio Sync IgnoreList to be copied into .sync on each synced host, if Resilio sync is used
-# This file can be deleted if Resilio Sync is not used.
-
-# IgnoreList is a UTF-8 encoded .txt file that helps you specify single files, paths and rules 
+﻿# IgnoreList is a UTF-8 encoded .txt file that helps you specify single files, paths and rules 
 # for ignoring during the synchronization job. It supports "?" and "*" wildcard symbols.
 #
 #
@@ -55,6 +52,7 @@ lost+found
 .!@#$recycle
 DfsrPrivate
 
+# Resilio Sync IgnoreList to be copied into .sync on each synced host
 logs
 _gsdata_
 .user.md5
