@@ -1,3 +1,9 @@
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    Write-Host "The tasks require Powershell Core 7 to work. It can be installed with scoop, chocolatey or winget."
+    Write-Host "-->  winget install --id Microsoft.Powershell --source winget"
+    throw "Need newer powershell for tasks (with pidlock)"
+}
+
 . $PSScriptRoot\load-env.ps1
 
 # download restic
@@ -139,7 +145,7 @@ function scheduleTask([string]$BackupTaskName, [string]$Command=".\backup.ps1", 
     }
     if(($null -eq $BackupTask) -Or $ReplaceCurrentTask) {
         try {
-            $task_action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-ExecutionPolicy Bypass -NonInteractive -NoLogo -NoProfile -Command `"$Command; exit `$LASTEXITCODE`"" -WorkingDirectory $InstallPath
+            $task_action = New-ScheduledTaskAction -Execute 'pwsh.exe' -Argument "-ExecutionPolicy Bypass -NonInteractive -NoLogo -NoProfile -Command `"$Command; exit `$LASTEXITCODE`"" -WorkingDirectory $InstallPath
             $task_user = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -RunLevel Highest
             $task_settings = New-ScheduledTaskSettingsSet -RestartCount 4 -RestartInterval (New-TimeSpan -Minutes 15) -ExecutionTimeLimit (New-TimeSpan -Days 3) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -DontStopOnIdleEnd -MultipleInstances IgnoreNew -IdleDuration 0 -IdleWaitTimeout 0 -StartWhenAvailable -RestartOnIdle
             if ($BackupTaskTrigger) {
