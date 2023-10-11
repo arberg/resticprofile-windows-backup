@@ -1,12 +1,14 @@
 . $PSScriptRoot\load-env.ps1
 
-executeProfileAndTask daily.backup
-"[[daily.backup]] $(Get-Date -uformat "%Y-%m-%d %H%M") Exit code: $LASTEXITCODE" >> $LogFileExitCodes
+executeProfileAndTask -ProfileName daily -Task backup
 $BackupExitCode=$LASTEXITCODE
 
-executeProfileAndTask repos.prune
-"[[repos.prune]] $(Get-Date -uformat "%Y-%m-%d %H%M") Exit code: $LASTEXITCODE" >> $LogFileExitCodes
-$PruneExitCode=$LASTEXITCODE
+if ((hostname) -eq $MaintenanceHost) {
+	executeProfileAndTask -ProfileName repos -Task prune
+	$PruneExitCode=$LASTEXITCODE
+} else {
+	$PruneExitCode=0
+}
 
 # Forward exit code to Task Scheduler (TS) from last native program (meaning restic/resticprofile) or last exit-command.
 # This has no effect on getting TS to rerun 'failed' tasks, as TS doesn't consider a task failed 

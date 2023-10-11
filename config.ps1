@@ -8,6 +8,8 @@ $ExeName = "restic.exe"
 $ResticExe = Join-Path $InstallPath $ExeName # can be externally installed version, but we will call self-update on it
 $ResticProfileExe = Join-Path $InstallPath "resticprofile.exe"
 $dirPid = Join-Path $InstallPath "pid"
+
+$WaitRepositoryAvailableSeconds=(21*3600) # Time to wait before taking PID lock for repository to become available. After PC resume network may be down.
 $WaitPidLockSeconds=(2*3600)
 
 # Create host dirs for each host this script runs on, and link profile to main. This makes it easier to sync backup folder between pc's and keep separate configs
@@ -15,11 +17,6 @@ $UseMultiHostsDir = $True
 
 $LogPath = Join-Path $InstallPath "logs"
 $LogRetentionDays = 30
-
-# Test what happens on errors
-# $LastExitCode is the return code of native applications. $? just returns True or False depending on whether the last command (cmdlet or native) exited without error or not.
-# https://stackoverflow.com/questions/10666035/difference-between-and-lastexitcode-in-powershell
-$LogFileExitCodes = Join-Path $LogPath "tasks-exit-codes.log" # todo delete cleanup
 
 # Only needed for multi-pc backup towards same repository. Set this to the hostname of the PC which should run the weekly check and prune tasks. Execute 'hostname' command to get your hostname.
 $MaintenanceHost = hostname

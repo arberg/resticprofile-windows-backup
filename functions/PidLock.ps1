@@ -18,8 +18,8 @@ function lastExecutedTimestampFile([string]$ScriptSource) {
 # Usage: executeWithPidLock($MyInvocation.MyCommand.Source) { }
 ### Warning: executeWithPidLock causes crappy exceptions because if below throws then it lists the pidLock as cause, so outcomment while developing it
 ### - Plus it messes with printout from robocopy and yt-dlp
-function executeWithPidLock([string]$ScriptSource, [int]$TimeoutSeconds=0, [ScriptBlock]$Block) {
-    $PID_FILE=takePidLock $ScriptSource -TimeoutSeconds:$TimeoutSeconds
+function executeWithPidLock([string]$ScriptSource, [int]$TimeoutSeconds=0, [string]$LogFile=$null, [ScriptBlock]$Block) {
+    $PID_FILE=takePidLock $ScriptSource -TimeoutSeconds:$TimeoutSeconds -LogFile:$LogFile
     try {
         $Block.Invoke() | Out-Host
     } finally {
@@ -29,7 +29,12 @@ function executeWithPidLock([string]$ScriptSource, [int]$TimeoutSeconds=0, [Scri
 }
 
 # Usage: takePidLock($MyInvocation.MyCommand.Source)
-function takePidLock([string]$ScriptSource, [int]$TimeoutSeconds=0) {
+function takePidLock([string]$ScriptSource, [int]$TimeoutSeconds=0, [string]$LogFile=$null) {
+    function log($Message) {
+        Write-Host "$Message"
+        if ($LogFile) { $Message >> $LogFile }
+    }   
+
     # How to prevent dual execution? see also
     # https://stackoverflow.com/questions/15969662/assure-only-1-instance-of-powershell-script-is-running-at-any-given-time
     $PID_FILE=pidFile -ScriptSource $ScriptSource
@@ -39,7 +44,7 @@ function takePidLock([string]$ScriptSource, [int]$TimeoutSeconds=0) {
     $Success=$False
     $stopwatch = [System.Diagnostics.Stopwatch]::new()
     $stopwatch.Start()
-    
+
     while (-Not $Success){
         if (Test-Path $PID_FILE) {
             $OTHER_PID=Get-Content $PID_FILE
@@ -48,7 +53,7 @@ function takePidLock([string]$ScriptSource, [int]$TimeoutSeconds=0) {
                     if ($stopwatch.Elapsed.TotalSeconds -gt $TimeoutSeconds) {
                         throw "Unable to get PID lock within timelimit, aborting." 
                     } else {
-                        if (-Not $HasWaitedForPidLock) { Write-Host "Waiting for PID-Lock from process $OTHER_PID" }
+                        if (-Not $HasWaitedForPidLock) { log "Waiting for PID-Lock from process $OTHER_PID" }
                         $HasWaitedForPidLock = $True
                         # Only wait 1 second at a time, since will wait for the PID of the surrounding powershell process, which could be longer than the task
                         Wait-Process -Id $OTHER_PID -Timeout 1 -ErrorAction SilentlyContinue
@@ -59,23 +64,31 @@ function takePidLock([string]$ScriptSource, [int]$TimeoutSeconds=0) {
                 }
             } else {
                 $Success=$True
-                Write-Host -ForegroundColor Yellow "Found old pid-file but process gone. Allowing this to run"
+                log "Found old pid-file but process gone. Allowing this to run"
             }
         } else {
             $Success=$True
         }
-    }
-    $PID | Out-File $PID_FILE
-    if (-Not (Test-Path $PID_FILE)) {
-        throw "PID_FILE should exist now: $PID_FILE"
-    }
-    $CurrentPidFileContent=Get-Content $PID_FILE
-    if ($CurrentPidFileContent -ne $PID) {
-        throw "PID_FILE written, but not written by us, as PID is wrong: myPid: $PID, PID_FILE content: $CurrentPidFileContent"
+
+        if ($Success) {
+            $PID | Out-File $PID_FILE
+            if (-Not (Test-Path $PID_FILE)) { 
+                throw "PID_FILE should exist now: $PID_FILE"
+            }
+            $CurrentPidFileContent = Get-Content $PID_FILE
+            if ($CurrentPidFileContent -ne $PID) {
+                # We lost the battle for the PID_FILE, another concurrent process must be have gotten it before us. Revert to looping, if we have the time
+                if ($TimeoutSeconds -gt 0) {
+                    $Success = $False # Back to looping       
+                } else {
+                    throw "PID_FILE written, but not written by us, as PID is wrong: myPid: $PID, PID_FILE content: $CurrentPidFileContent"
+                }
+            }
+        }
     }
 
     if ($HasWaitedForPidLock) {
-        Write-Host "Executing $ScriptSource, acquired PID lock..."
+        log "Executing $ScriptSource, acquired PID lock..."
     }
     # Write-Host -ForegroundColor Magenta "Taken PidFile: $PID_FILE"
     return $PID_FILE
